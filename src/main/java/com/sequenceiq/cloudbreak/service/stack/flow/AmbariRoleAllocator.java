@@ -1,19 +1,19 @@
 package com.sequenceiq.cloudbreak.service.stack.flow;
 
-import static com.sequenceiq.cloudbreak.service.PollingResult.isExited;
 import static com.sequenceiq.cloudbreak.service.PollingResult.isSuccess;
 import static com.sequenceiq.cloudbreak.service.stack.flow.ConsulUtils.createClients;
 import static com.sequenceiq.cloudbreak.service.stack.flow.ConsulUtils.getAliveMembers;
 import static com.sequenceiq.cloudbreak.service.stack.flow.ConsulUtils.getService;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,16 +22,34 @@ import org.springframework.stereotype.Service;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.catalog.model.CatalogService;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
+import com.sequenceiq.ambari.client.AmbariClient;
+import com.sequenceiq.cloudbreak.controller.json.HostGroupAdjustmentJson;
+import com.sequenceiq.cloudbreak.core.flow.context.ClusterScalingContext;
+import com.sequenceiq.cloudbreak.domain.Cluster;
+import com.sequenceiq.cloudbreak.domain.HostGroup;
+import com.sequenceiq.cloudbreak.domain.HostMetadata;
 import com.sequenceiq.cloudbreak.domain.InstanceGroup;
+import com.sequenceiq.cloudbreak.domain.InstanceGroupType;
 import com.sequenceiq.cloudbreak.domain.InstanceMetaData;
 import com.sequenceiq.cloudbreak.domain.InstanceStatus;
+import com.sequenceiq.cloudbreak.domain.ScalingType;
 import com.sequenceiq.cloudbreak.domain.Stack;
+import com.sequenceiq.cloudbreak.domain.Status;
+import com.sequenceiq.cloudbreak.logger.MDCBuilder;
+import com.sequenceiq.cloudbreak.repository.ClusterRepository;
+import com.sequenceiq.cloudbreak.repository.HostGroupRepository;
 import com.sequenceiq.cloudbreak.repository.InstanceMetaDataRepository;
 import com.sequenceiq.cloudbreak.repository.RetryingStackUpdater;
 import com.sequenceiq.cloudbreak.repository.StackRepository;
 import com.sequenceiq.cloudbreak.service.PollingResult;
 import com.sequenceiq.cloudbreak.service.PollingService;
+import com.sequenceiq.cloudbreak.service.cluster.AmbariClientProvider;
+import com.sequenceiq.cloudbreak.service.cluster.flow.AmbariHosts;
+import com.sequenceiq.cloudbreak.service.cluster.flow.AmbariHostsStatusCheckerTask;
+import com.sequenceiq.cloudbreak.service.events.CloudbreakEventService;
 import com.sequenceiq.cloudbreak.service.stack.event.AmbariRoleAllocationComplete;
 import com.sequenceiq.cloudbreak.service.stack.event.StackUpdateSuccess;
 
@@ -44,12 +62,19 @@ public class AmbariRoleAllocator {
     private static final String CONSUL_SERVICE = "consul";
     private static final int POLLING_INTERVAL = 5000;
     private static final int MAX_POLLING_ATTEMPTS = 100;
+    private static final int MAX_ATTEMPTS_FOR_HOSTS = 240;
 
     @Autowired
     private StackRepository stackRepository;
 
     @Autowired
     private InstanceMetaDataRepository instanceMetaDataRepository;
+
+    @Autowired
+    private ClusterRepository clusterRepository;
+
+    @Autowired
+    private HostGroupRepository hostGroupRepository;
 
     @Autowired
     private RetryingStackUpdater stackUpdater;
@@ -63,7 +88,19 @@ public class AmbariRoleAllocator {
     @Autowired
     private ConsulServiceCheckerTask consulServiceCheckerTask;
 
-    public AmbariRoleAllocationComplete allocateRoles(Long stackId, Set<CoreInstanceMetaData> coreInstanceMetaData) {
+    @Autowired
+    private PollingService<AmbariHosts> hostsPollingService;
+
+    @Autowired
+    private AmbariHostsStatusCheckerTask ambariHostsStatusCheckerTask;
+
+    @Autowired
+    private AmbariClientProvider ambariClientProvider;
+
+    @Autowired
+    private CloudbreakEventService eventService;
+
+    public AmbariRoleAllocationComplete finalize(Long stackId, Set<CoreInstanceMetaData> coreInstanceMetaData) {
         AmbariRoleAllocationComplete allocationComplete = null;
 
         Stack stack = stackRepository.findById(stackId);
@@ -79,14 +116,12 @@ public class AmbariRoleAllocator {
             }
             stack = stackUpdater.updateMetadataReady(stackId, true);
             Set<InstanceMetaData> allInstanceMetaData = stack.getRunningInstanceMetaData();
-            Optional<String> publicAmbariAddress = updateAmbariInstanceMetadata(stack, allInstanceMetaData);
+            Optional<CoreInstanceMetaData> gateWayCoreInstanceMetaData = getGateWayCoreInstanceMetaData(coreInstanceMetaData);
+            Optional<String> publicAmbariAddress = updateAmbariInstanceMetadata(allInstanceMetaData, gateWayCoreInstanceMetaData);
             if (publicAmbariAddress.isPresent()) {
-                PollingResult pollingResult = waitForConsulAgents(stack, allInstanceMetaData, Collections.<InstanceMetaData>emptySet());
-                if (isSuccess(pollingResult)) {
-                    updateWithConsulData(allInstanceMetaData);
-                    instanceMetaDataRepository.save(allInstanceMetaData);
-                    allocationComplete = new AmbariRoleAllocationComplete(stack, publicAmbariAddress.orNull());
-                }
+                stackUpdater.updateAmbariIp(stackId, publicAmbariAddress.orNull());
+                instanceMetaDataRepository.save(allInstanceMetaData);
+                allocationComplete = new AmbariRoleAllocationComplete(stack, publicAmbariAddress.orNull());
             }
         } else {
             LOGGER.info("Metadata is already created, ignoring stack metadata update.");
@@ -94,9 +129,35 @@ public class AmbariRoleAllocator {
         return allocationComplete;
     }
 
-    public StackUpdateSuccess updateInstanceMetadata(Long stackId, Set<CoreInstanceMetaData> coreInstanceMetaData, String instanceGroupName) {
-        StackUpdateSuccess stackUpdateSuccess = null;
+    public AmbariRoleAllocationComplete allocateRoles(Long stackId) {
+        AmbariRoleAllocationComplete allocationComplete = null;
 
+        Stack stack = stackRepository.findById(stackId);
+        MDCBuilder.buildMdcContext(stack);
+        Set<InstanceMetaData> allInstanceMetaData = stack.getAllInstanceMetaData();
+        PollingResult pollingResult = waitForConsulAgents(stack, allInstanceMetaData, Collections.<InstanceMetaData>emptySet());
+        if (isSuccess(pollingResult)) {
+            updateWithConsulData(allInstanceMetaData);
+            instanceMetaDataRepository.save(allInstanceMetaData);
+            allocationComplete = new AmbariRoleAllocationComplete(stack, stack.getAmbariIp());
+        }
+        return allocationComplete;
+    }
+
+    public ClusterScalingContext updateNewInstanceMetadata(Long stackId, HostGroupAdjustmentJson adjustment, Set<String> instanceIds, ScalingType scalingType) {
+        Stack stack = stackRepository.findOneWithLists(stackId);
+        Cluster cluster = clusterRepository.findOneWithLists(stack.getCluster().getId());
+        MDCBuilder.buildMdcContext(cluster);
+        stackUpdater.updateStackStatus(stack.getId(), Status.UPDATE_IN_PROGRESS, "Adding new host(s) to the cluster.");
+        HostGroup hostGroup = hostGroupRepository.findHostGroupInClusterByName(cluster.getId(), adjustment.getHostGroup());
+        List<String> hosts = findFreeHosts(stack.getId(), hostGroup, adjustment.getScalingAdjustment());
+        List<HostMetadata> hostMetadata = addHostMetadata(cluster, hosts, adjustment);
+        ClusterScalingContext clusterScalingContext =
+                new ClusterScalingContext(stackId, stack.cloudPlatform(), adjustment, instanceIds, hostMetadata, scalingType);
+        return clusterScalingContext;
+    }
+
+    public StackUpdateSuccess updateInstanceMetadata(Long stackId, Set<CoreInstanceMetaData> coreInstanceMetaData, String instanceGroupName) {
         Stack one = stackRepository.findOneWithLists(stackId);
         InstanceGroup instanceGroup = one.getInstanceGroupByInstanceGroupName(instanceGroupName);
         Set<InstanceMetaData> originalMetadata = instanceGroup.getAllInstanceMetaData();
@@ -107,50 +168,79 @@ public class AmbariRoleAllocator {
         originalMetadata.addAll(instanceMetaData);
         Stack modifiedStack = stackUpdater.updateStackMetaData(stackId, originalMetadata, instanceGroupName);
         stackUpdater.updateMetadataReady(stackId, true);
-        PollingResult pollingResult = waitForConsulAgents(modifiedStack, originalMetadata, instanceMetaData);
-        if (isSuccess(pollingResult)) {
-            updateWithConsulData(modifiedStack.getInstanceGroupByInstanceGroupName(instanceGroupName).getInstanceMetaData());
-            stackUpdater.updateStackMetaData(stackId,
-                    modifiedStack.getInstanceGroupByInstanceGroupName(instanceGroupName).getAllInstanceMetaData(), instanceGroupName);
-            Set<String> instanceIds = new HashSet<>();
-            for (InstanceMetaData metadataEntry : instanceMetaData) {
-                instanceIds.add(metadataEntry.getInstanceId());
-            }
-            stackUpdateSuccess = new StackUpdateSuccess(stackId, false, instanceIds, instanceGroupName);
+        Set<InstanceMetaData> newInstanceMetadata = modifiedStack.getInstanceGroupByInstanceGroupName(instanceGroupName).getInstanceMetaData();
+        instanceMetaDataRepository.save(updateWithNewNodesConsulData(newInstanceMetadata));
+        Set<String> instanceIds = new HashSet<>();
+        for (InstanceMetaData metadataEntry : instanceMetaData) {
+            instanceIds.add(metadataEntry.getInstanceId());
         }
-        return stackUpdateSuccess;
+        return new StackUpdateSuccess(stackId, false, instanceIds, instanceGroupName);
     }
 
-    private Optional<String> updateAmbariInstanceMetadata(Stack stack, Set<InstanceMetaData> instancesMetaData) {
-        AmbariAddressReturnObject ambariAddress = getAmbariAddressFromConsul(stack, instancesMetaData);
-        if (ambariAddress.getAddress().isPresent() && isSuccess(ambariAddress.getPollingResult().orNull())) {
+    private PollingResult waitForHosts(Stack stack, AmbariClient ambariClient) {
+        MDCBuilder.buildMdcContext(stack);
+        LOGGER.info("Waiting for hosts to connect.[Ambari server address: {}]", stack.getAmbariIp());
+        return hostsPollingService.pollWithTimeout(
+                ambariHostsStatusCheckerTask,
+                new AmbariHosts(stack, ambariClient, stack.getFullNodeCountWithoutDecommissionedNodes() - stack.getGateWayNodeCount()),
+                POLLING_INTERVAL,
+                MAX_ATTEMPTS_FOR_HOSTS);
+    }
+
+    private List<String> findFreeHosts(Long stackId, HostGroup hostGroup, int scalingAdjustment) {
+        Set<InstanceMetaData> unregisteredHosts = instanceMetaDataRepository.findUnregisteredHostsInInstanceGroup(hostGroup.getInstanceGroup().getId());
+        Set<InstanceMetaData> instances = FluentIterable.from(unregisteredHosts).limit(scalingAdjustment).toSet();
+        String statusReason = String.format("Adding '%s' new host(s) to the '%s' host group.", scalingAdjustment, hostGroup.getName());
+        eventService.fireCloudbreakInstanceGroupEvent(stackId, Status.UPDATE_IN_PROGRESS.name(), statusReason, hostGroup.getName());
+        return getHostNames(instances);
+    }
+
+    private List<String> getHostNames(Set<InstanceMetaData> instances) {
+        return FluentIterable.from(instances).transform(new Function<InstanceMetaData, String>() {
+            @Nullable
+            @Override
+            public String apply(@Nullable InstanceMetaData input) {
+                return input.getLongName();
+            }
+        }).toList();
+    }
+
+    private List<HostMetadata> addHostMetadata(Cluster cluster, List<String> hosts, HostGroupAdjustmentJson hostGroupAdjustment) {
+        List<HostMetadata> hostMetadata = new ArrayList<>();
+        HostGroup hostGroup = hostGroupRepository.findHostGroupInClusterByName(cluster.getId(), hostGroupAdjustment.getHostGroup());
+        for (String host : hosts) {
+            HostMetadata hostMetadataEntry = new HostMetadata();
+            hostMetadataEntry.setHostName(host);
+            hostMetadataEntry.setHostGroup(hostGroup);
+            hostMetadata.add(hostMetadataEntry);
+        }
+        hostGroup.getHostMetadata().addAll(hostMetadata);
+        hostGroupRepository.save(hostGroup);
+        return hostMetadata;
+    }
+
+    public Optional<CoreInstanceMetaData> getGateWayCoreInstanceMetaData(Set<CoreInstanceMetaData> coreInstanceMetaData) {
+        for (CoreInstanceMetaData instanceMetaData : coreInstanceMetaData) {
+            if (InstanceGroupType.isGateWay(instanceMetaData.getInstanceGroup().getInstanceGroupType())) {
+                return Optional.of(instanceMetaData);
+            }
+        }
+        return Optional.absent();
+    }
+
+    private Optional<String> updateAmbariInstanceMetadata(Set<InstanceMetaData> instancesMetaData, Optional<CoreInstanceMetaData> gatewayMetadata) {
+        if (gatewayMetadata.isPresent()) {
             for (InstanceMetaData instanceMetaData : instancesMetaData) {
-                if (instanceMetaData.getPrivateIp().equalsIgnoreCase(ambariAddress.getAddress().orNull())) {
+                if (instanceMetaData.getPrivateIp().equalsIgnoreCase(gatewayMetadata.get().getPrivateIp())) {
                     instanceMetaData.setAmbariServer(true);
                     instanceMetaData.setInstanceStatus(InstanceStatus.REGISTERED);
                     return Optional.fromNullable(instanceMetaData.getPublicIp());
                 }
             }
-        } else if (isExited(ambariAddress.pollingResult.orNull())) {
+        } else {
             return Optional.absent();
         }
         throw new WrongMetadataException("Public IP of Ambari server cannot be null");
-    }
-
-    private AmbariAddressReturnObject getAmbariAddressFromConsul(Stack stack, Set<InstanceMetaData> instancesMetaData) {
-        List<ConsulClient> clients = createClients(instancesMetaData);
-        PollingResult pollingResult = consulPollingService.pollWithTimeout(
-                consulServiceCheckerTask,
-                new ConsulContext(stack, clients, Arrays.asList(AMBARI_SERVICE)),
-                POLLING_INTERVAL,
-                MAX_POLLING_ATTEMPTS);
-        if (isSuccess(pollingResult)) {
-            return successAmbariAddressReturnObject(getService(clients, AMBARI_SERVICE).get(0).getAddress());
-        } else if (isExited(pollingResult)) {
-            return exitedAmbariAddressReturnObject();
-        } else {
-            return failedAmbariAddressReturnObject();
-        }
     }
 
     private PollingResult waitForConsulAgents(Stack stack, Set<InstanceMetaData> originalMetaData, Set<InstanceMetaData> instancesMetaData) {
@@ -190,6 +280,17 @@ public class AmbariRoleAllocator {
                 instanceMetaData.setLongName(address + ConsulUtils.CONSUL_DOMAIN);
             }
         }
+    }
+
+    private Set<InstanceMetaData> updateWithNewNodesConsulData(Set<InstanceMetaData> instancesMetaData) {
+        for (InstanceMetaData instanceMetaData : instancesMetaData) {
+            if (!instanceMetaData.getLongName().endsWith(ConsulUtils.CONSUL_DOMAIN)
+                    && InstanceStatus.UNREGISTERED.equals(instanceMetaData.getInstanceStatus())) {
+                instanceMetaData.setConsulServer(false);
+                instanceMetaData.setLongName(instanceMetaData.getInstanceId() + ConsulUtils.CONSUL_DOMAIN);
+            }
+        }
+        return instancesMetaData;
     }
 
     private Set<String> getConsulServers(List<ConsulClient> clients) {

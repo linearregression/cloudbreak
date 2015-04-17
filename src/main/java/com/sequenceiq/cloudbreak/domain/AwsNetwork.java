@@ -23,4 +23,10 @@ public class AwsNetwork extends Network {
     public void setInternetGatewayId(String internetGatewayId) {
         this.internetGatewayId = internetGatewayId;
     }
+
+    public boolean isExistingVPC() {
+        return super.getSubnetCIDR() != null
+                && vpcId != null
+                && internetGatewayId != null;
+    }
 }

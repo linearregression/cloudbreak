@@ -3,21 +3,17 @@ package com.sequenceiq.cloudbreak.domain;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
-import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
-import javax.persistence.MapKeyColumn;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
@@ -26,8 +22,6 @@ import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 import javax.persistence.Version;
-
-import com.sequenceiq.cloudbreak.controller.validation.StackParam;
 
 @Entity
 @Table(name = "Stack", uniqueConstraints = {
@@ -176,10 +170,6 @@ public class Stack implements ProvisionEntity {
     private String statusReason;
     @Enumerated(EnumType.STRING)
     private Status status;
-    @ElementCollection(fetch = FetchType.EAGER)
-    @MapKeyColumn(name = "key")
-    @Column(name = "value", columnDefinition = "TEXT", length = 100000)
-    private Map<String, String> parameters;
     @OneToOne
     private Credential credential;
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
@@ -479,20 +469,6 @@ public class Stack implements ProvisionEntity {
 
     public void addAllowedSubnet(Subnet subnet) {
         allowedSubnets.add(subnet);
-    }
-
-    public Map<String, String> getParameters() {
-        return parameters;
-    }
-
-    public void setParameters(Map<String, String> parameters) {
-        this.parameters = parameters;
-    }
-
-    public boolean isExistingVPC() {
-        return parameters.get(StackParam.VPC_ID.getName()) != null
-                && parameters.get(StackParam.SUBNET_CIDR.getName()) != null
-                && parameters.get(StackParam.IGW_ID.getName()) != null;
     }
 
     public Set<InstanceGroup> getInstanceGroupsByType(InstanceGroupType instanceGroupType) {

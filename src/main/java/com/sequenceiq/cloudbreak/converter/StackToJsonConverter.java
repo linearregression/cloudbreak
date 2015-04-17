@@ -56,7 +56,6 @@ public class StackToJsonConverter extends AbstractConversionServiceAwareConverte
             stackJson.setFailurePolicy(getConversionService().convert(source.getFailurePolicy(), FailurePolicyJson.class));
         }
         stackJson.setImage(source.getImage());
-        stackJson.setParameters(source.getParameters());
         return stackJson;
     }
 

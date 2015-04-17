@@ -76,7 +76,7 @@ public class HeatTemplateBuilder {
             model.put("gatewayuserdata", formatUserData(gateWayUserData));
             model.put("subnets", stack.getAllowedSubnets());
             model.put("ports", NetworkUtils.getPorts(stack));
-            model.put("cbSubnet", NetworkConfig.SUBNET_16);
+            model.put("cbSubnet", stack.getNetwork().getSubnetCIDR());
             model.put("startIP", NetworkConfig.START_IP);
             model.put("endIP", NetworkConfig.END_IP);
             model.put("gatewayIP", NetworkConfig.GATEWAY_IP);

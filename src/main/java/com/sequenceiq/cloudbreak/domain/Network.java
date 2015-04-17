@@ -6,9 +6,14 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.SequenceGenerator;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 @Entity
-public class Network {
+@Table(uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "account", "name" }),
+})
+public abstract class Network {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "network_generator")
@@ -23,6 +28,9 @@ public class Network {
 
     @Column(length = 1000000, columnDefinition = "TEXT")
     private String description;
+
+    private String owner;
+    private String account;
 
     public Long getId() {
         return id;
@@ -54,5 +62,21 @@ public class Network {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getOwner() {
+        return owner;
+    }
+
+    public void setOwner(String owner) {
+        this.owner = owner;
+    }
+
+    public String getAccount() {
+        return account;
+    }
+
+    public void setAccount(String account) {
+        this.account = account;
     }
 }

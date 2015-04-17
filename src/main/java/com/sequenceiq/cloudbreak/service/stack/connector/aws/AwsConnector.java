@@ -81,6 +81,7 @@ import com.google.common.collect.Sets;
 import com.sequenceiq.cloudbreak.controller.BuildStackFailureException;
 import com.sequenceiq.cloudbreak.controller.StackCreationFailureException;
 import com.sequenceiq.cloudbreak.domain.AwsCredential;
+import com.sequenceiq.cloudbreak.domain.AwsNetwork;
 import com.sequenceiq.cloudbreak.domain.AwsTemplate;
 import com.sequenceiq.cloudbreak.domain.CloudPlatform;
 import com.sequenceiq.cloudbreak.domain.Cluster;
@@ -170,11 +171,12 @@ public class AwsConnector implements CloudPlatformConnector {
         AllocateAddressRequest allocateAddressRequest = new AllocateAddressRequest().withDomain(DomainType.Vpc);
         AllocateAddressResult allocateAddressResult = amazonEC2Client.allocateAddress(allocateAddressRequest);
         String snapshotId = getEbsSnapshotIdIfNeeded(stack);
+        AwsNetwork network = (AwsNetwork) stack.getNetwork();
         CreateStackRequest createStackRequest = new CreateStackRequest()
                 .withStackName(cFStackName)
                 .withOnFailure(OnFailure.valueOf(stack.getOnFailureActionAction().name()))
-                .withTemplateBody(cfTemplateBuilder.build(stack, snapshotId, stack.isExistingVPC(), awsCloudformationTemplatePath))
-                .withParameters(getStackParameters(stack, hostGroupUserData, gateWayUserData, awsCredential, cFStackName, stack.isExistingVPC()));
+                .withTemplateBody(cfTemplateBuilder.build(stack, snapshotId, network.isExistingVPC(), awsCloudformationTemplatePath))
+                .withParameters(getStackParameters(stack, hostGroupUserData, gateWayUserData, awsCredential, cFStackName, network.isExistingVPC()));
         client.createStack(createStackRequest);
         Resource cloudFormationStackResource = new Resource(ResourceType.CLOUDFORMATION_STACK, cFStackName, stack, null);
         Resource reservedIp = new Resource(ResourceType.AWS_RESERVED_IP, allocateAddressResult.getAllocationId(), stack, null);
@@ -314,11 +316,12 @@ public class AwsConnector implements CloudPlatformConnector {
     public void updateAllowedSubnets(Stack stack, String gateWayUserData, String hostGroupUserData) throws UpdateFailedException {
         String cFStackName = cfStackUtil.getCfStackName(stack);
         String snapshotId = getEbsSnapshotIdIfNeeded(stack);
+        AwsNetwork awsNetwork = (AwsNetwork) stack.getNetwork();
         UpdateStackRequest updateStackRequest = new UpdateStackRequest()
                 .withStackName(cFStackName)
-                .withTemplateBody(cfTemplateBuilder.build(stack, snapshotId, stack.isExistingVPC(), awsCloudformationTemplatePath))
+                .withTemplateBody(cfTemplateBuilder.build(stack, snapshotId, awsNetwork.isExistingVPC(), awsCloudformationTemplatePath))
                 .withParameters(getStackParameters(stack, hostGroupUserData, gateWayUserData,
-                        (AwsCredential) stack.getCredential(), stack.getName(), stack.isExistingVPC()));
+                        (AwsCredential) stack.getCredential(), stack.getName(), awsNetwork.isExistingVPC()));
         AmazonCloudFormationClient cloudFormationClient = awsStackUtil.createCloudFormationClient(stack);
         cloudFormationClient.updateStack(updateStackRequest);
         List<StackStatus> errorStatuses = Arrays.asList(UPDATE_ROLLBACK_COMPLETE, UPDATE_ROLLBACK_FAILED);
@@ -428,9 +431,10 @@ public class AwsConnector implements CloudPlatformConnector {
                 new Parameter().withParameterKey("RootDeviceName").withParameterValue(getRootDeviceName(stack, awsCredential))
         ));
         if (existingVPC) {
-            parameters.add(new Parameter().withParameterKey("VPCId").withParameterValue(stack.getParameters().get("vpcId")));
-            parameters.add(new Parameter().withParameterKey("SubnetCIDR").withParameterValue(stack.getParameters().get("subnetCIDR")));
-            parameters.add(new Parameter().withParameterKey("InternetGatewayId").withParameterValue(stack.getParameters().get("internetGatewayId")));
+            AwsNetwork awsNetwork = (AwsNetwork) stack.getNetwork();
+            parameters.add(new Parameter().withParameterKey("VPCId").withParameterValue(awsNetwork.getVpcId()));
+            parameters.add(new Parameter().withParameterKey("SubnetCIDR").withParameterValue(awsNetwork.getSubnetCIDR()));
+            parameters.add(new Parameter().withParameterKey("InternetGatewayId").withParameterValue(awsNetwork.getInternetGatewayId()));
         }
         return parameters;
     }

@@ -16,6 +16,7 @@ import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.ManyToOne;
 import javax.persistence.MapKeyColumn;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
@@ -195,6 +196,8 @@ public class Stack implements ProvisionEntity {
     private Set<Subnet> allowedSubnets = new HashSet<>();
     @Version
     private Long version;
+    @ManyToOne
+    private Network network;
 
     public Set<InstanceGroup> getInstanceGroups() {
         return instanceGroups;
@@ -520,4 +523,11 @@ public class Stack implements ProvisionEntity {
         return gateWaySize;
     }
 
+    public Network getNetwork() {
+        return network;
+    }
+
+    public void setNetwork(Network network) {
+        this.network = network;
+    }
 }

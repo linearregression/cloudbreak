@@ -5,6 +5,8 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
@@ -12,6 +14,43 @@ import javax.persistence.UniqueConstraint;
 @Entity
 @Table(uniqueConstraints = {
         @UniqueConstraint(columnNames = { "account", "name" }),
+})
+@NamedQueries({
+        @NamedQuery(
+                name = "Network.findOneById",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.id= :id"),
+        @NamedQuery(
+                name = "Network.findOneByName",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.name= :name"),
+        @NamedQuery(
+                name = "Network.findByName",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.name= :name"),
+        @NamedQuery(
+                name = "Network.findByNameForUser",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.name= :name "
+                        + "AND r.owner= :owner"),
+        @NamedQuery(
+                name = "Network.findByNameInAccount",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.name= :name "
+                        + "AND r.account= :account"),
+        @NamedQuery(
+                name = "Network.findForUser",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.owner= :owner"),
+        @NamedQuery(
+                name = "Network.findPublicInAccountForUser",
+                query = "SELECT r FROM Network r "
+                        + "WHERE (r.account= :account AND r.publicInAccount= true) "
+                        + "OR r.owner= :owner"),
+        @NamedQuery(
+                name = "Network.findAllInAccount",
+                query = "SELECT r FROM Network r "
+                        + "WHERE r.account= :account ")
 })
 public abstract class Network {
 
@@ -31,6 +70,8 @@ public abstract class Network {
 
     private String owner;
     private String account;
+
+    private boolean publicInAccount;
 
     public Long getId() {
         return id;
@@ -78,5 +119,13 @@ public abstract class Network {
 
     public void setAccount(String account) {
         this.account = account;
+    }
+
+    public boolean isPublicInAccount() {
+        return publicInAccount;
+    }
+
+    public void setPublicInAccount(boolean publicInAccount) {
+        this.publicInAccount = publicInAccount;
     }
 }

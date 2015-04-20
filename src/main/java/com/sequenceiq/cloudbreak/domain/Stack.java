@@ -143,7 +143,14 @@ import javax.persistence.Version;
                         + "LEFT JOIN FETCH t.resources "
                         + "LEFT JOIN FETCH t.instanceGroups ig "
                         + "LEFT JOIN FETCH ig.instanceMetaData "
-                        + "WHERE t.credential.id= :credentialId ")
+                        + "WHERE t.credential.id= :credentialId "),
+        @NamedQuery(
+                name = "Stack.findAllByNetwork",
+                query = "SELECT t FROM Stack t "
+                        + "LEFT JOIN FETCH t.resources "
+                        + "LEFT JOIN FETCH t.instanceGroups ig "
+                        + "LEFT JOIN FETCH ig.instanceMetaData "
+                        + "WHERE t.network.id= :networkId ")
 })
 public class Stack implements ProvisionEntity {
 

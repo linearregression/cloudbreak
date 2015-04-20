@@ -20,7 +20,6 @@ import com.sequenceiq.cloudbreak.domain.InstanceGroup;
 import com.sequenceiq.cloudbreak.domain.InstanceMetaData;
 import com.sequenceiq.cloudbreak.domain.OpenStackTemplate;
 import com.sequenceiq.cloudbreak.domain.Stack;
-import com.sequenceiq.cloudbreak.service.network.NetworkConfig;
 import com.sequenceiq.cloudbreak.service.network.NetworkUtils;
 
 import freemarker.template.Configuration;
@@ -77,9 +76,6 @@ public class HeatTemplateBuilder {
             model.put("subnets", stack.getAllowedSubnets());
             model.put("ports", NetworkUtils.getPorts(stack));
             model.put("cbSubnet", stack.getNetwork().getSubnetCIDR());
-            model.put("startIP", NetworkConfig.START_IP);
-            model.put("endIP", NetworkConfig.END_IP);
-            model.put("gatewayIP", NetworkConfig.GATEWAY_IP);
             return processTemplateIntoString(freemarkerConfiguration.getTemplate(openStackHeatTemplatePath, "UTF-8"), model);
         } catch (IOException | TemplateException e) {
             throw new InternalServerException("Failed to process the OpenStack HeatTemplate", e);

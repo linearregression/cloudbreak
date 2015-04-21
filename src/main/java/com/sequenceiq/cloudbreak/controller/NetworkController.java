@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.sequenceiq.cloudbreak.controller.doc.ContentType;
+import com.sequenceiq.cloudbreak.controller.doc.ControllerDescription;
 import com.sequenceiq.cloudbreak.controller.doc.Notes;
 import com.sequenceiq.cloudbreak.controller.doc.OperationDescriptions;
 import com.sequenceiq.cloudbreak.controller.json.IdJson;
@@ -31,9 +32,11 @@ import com.sequenceiq.cloudbreak.domain.GcpNetwork;
 import com.sequenceiq.cloudbreak.domain.Network;
 import com.sequenceiq.cloudbreak.domain.OpenStackNetwork;
 import com.sequenceiq.cloudbreak.service.network.NetworkService;
+import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 
 @Controller
+@Api(value = "/networks", description = ControllerDescription.NETWORK_DESCRIPTION, position = 8)
 public class NetworkController {
 
     @Autowired

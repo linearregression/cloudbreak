@@ -74,7 +74,7 @@ public class SimpleNetworkService implements NetworkService {
 
     @Override
     public Network getPublicNetwork(String name, CbUser user) {
-        Network network = networkRepository.findByNameInAccount(name, user.getUserId());
+        Network network = networkRepository.findByNameInAccount(name, user.getAccount());
         if (network == null) {
             throw new NotFoundException(String.format("Network '%s' not found", name));
         }

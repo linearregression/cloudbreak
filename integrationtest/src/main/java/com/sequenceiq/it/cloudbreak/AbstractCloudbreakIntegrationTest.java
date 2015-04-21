@@ -8,6 +8,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.ITestContext;
+import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Optional;
@@ -29,6 +30,9 @@ public abstract class AbstractCloudbreakIntegrationTest extends AbstractTestNGSp
 
     @BeforeClass
     public void checkContextParameters(ITestContext testContext) throws Exception {
+        if (testContext.getFailedTests().size() > 0) {
+            throw new SkipException("There are failed tests in the suite, the remaining tests will be skipped.");
+        }
         itContext = suiteContext.getItContext(testContext.getSuite().getName());
         client = itContext.getContextParam(CloudbreakITContextConstants.CLOUDBREAK_CLIENT, CloudbreakClient.class);
         Assert.assertNotNull(client, "CloudbreakClient cannot be null.");

@@ -120,4 +120,8 @@ public class ModelDescriptions {
         public static final String MESSAGE = "message of the event";
     }
 
+    public static class NetworkModelDescription {
+        public static final String PARAMETERS = "provider specific parameters of the specified network";
+        public static final String SUBNET_CIDR = "the subnet definition of the network in CIDR format";
+    }
 }

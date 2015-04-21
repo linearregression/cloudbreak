@@ -2,6 +2,8 @@ package com.sequenceiq.cloudbreak.service.network;
 
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import com.sequenceiq.cloudbreak.service.DuplicateKeyValueException;
 
 @Service
 public class SimpleNetworkService implements NetworkService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SimpleNetworkService.class);
 
     @Autowired
     private NetworkRepository networkRepository;
@@ -27,6 +30,7 @@ public class SimpleNetworkService implements NetworkService {
 
     @Override
     public Network create(CbUser user, Network network) {
+        LOGGER.info("Creating network: [User: '{}', Account: '{}']", user.getUsername(), user.getAccount());
         network.setOwner(user.getUserId());
         network.setAccount(user.getAccount());
         try {
@@ -83,6 +87,7 @@ public class SimpleNetworkService implements NetworkService {
 
     @Override
     public void delete(Long id, CbUser user) {
+        LOGGER.info("Deleting network with id: {}", id);
         Network network = networkRepository.findOne(id);
         if (network == null) {
             throw new NotFoundException(String.format("Network '%s' not found.", id));
@@ -93,6 +98,7 @@ public class SimpleNetworkService implements NetworkService {
 
     @Override
     public void delete(String name, CbUser user) {
+        LOGGER.info("Deleting network with name: {}", name);
         Network network = networkRepository.findByName(name);
         if (network == null) {
             throw new NotFoundException(String.format("Network '%s' not found.", name));

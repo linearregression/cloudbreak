@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.sequenceiq.cloudbreak.controller.doc.ContentType;
+import com.sequenceiq.cloudbreak.controller.doc.Notes;
+import com.sequenceiq.cloudbreak.controller.doc.OperationDescriptions;
 import com.sequenceiq.cloudbreak.controller.json.IdJson;
 import com.sequenceiq.cloudbreak.controller.json.NetworkJson;
 import com.sequenceiq.cloudbreak.domain.AwsNetwork;
@@ -28,6 +31,7 @@ import com.sequenceiq.cloudbreak.domain.GcpNetwork;
 import com.sequenceiq.cloudbreak.domain.Network;
 import com.sequenceiq.cloudbreak.domain.OpenStackNetwork;
 import com.sequenceiq.cloudbreak.service.network.NetworkService;
+import com.wordnik.swagger.annotations.ApiOperation;
 
 @Controller
 public class NetworkController {
@@ -39,18 +43,21 @@ public class NetworkController {
     @Autowired
     private NetworkService networkService;
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.POST_PRIVATE, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "user/networks", method = RequestMethod.POST)
     @ResponseBody
     public ResponseEntity<IdJson> createPrivateNetwork(@ModelAttribute("user") CbUser user, @RequestBody @Valid NetworkJson networkJson) {
         return createNetwork(user, networkJson, false);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.POST_PUBLIC, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "account/networks", method = RequestMethod.POST)
     @ResponseBody
     public ResponseEntity<IdJson> createAccountNetwork(@ModelAttribute("user") CbUser user, @RequestBody @Valid NetworkJson networkJson) {
         return createNetwork(user, networkJson, true);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.GET_PRIVATE, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "user/networks", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<Set<NetworkJson>> getPrivateNetworks(@ModelAttribute("user") CbUser user) {
@@ -58,6 +65,7 @@ public class NetworkController {
         return new ResponseEntity<>(convert(networks), HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.GET_PUBLIC, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "account/networks", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<Set<NetworkJson>> getAccountNetworks(@ModelAttribute("user") CbUser user) {
@@ -65,6 +73,7 @@ public class NetworkController {
         return new ResponseEntity<>(convert(networks), HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.GET_BY_ID, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "networks/{id}", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<NetworkJson> getNetwork(@ModelAttribute("user") CbUser user, @PathVariable Long id) {
@@ -72,6 +81,7 @@ public class NetworkController {
         return new ResponseEntity<>(convert(network), HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.GET_PRIVATE_BY_NAME, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "user/networks/{name}", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<NetworkJson> getNetworkInPrivate(@ModelAttribute("user") CbUser user, @PathVariable String name) {
@@ -79,6 +89,7 @@ public class NetworkController {
         return new ResponseEntity<>(convert(network), HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.GET_PUBLIC_BY_NAME, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "account/networks/{name}", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<NetworkJson> getNetworkInAccount(@ModelAttribute("user") CbUser user, @PathVariable String name) {
@@ -86,6 +97,7 @@ public class NetworkController {
         return new ResponseEntity<>(convert(network), HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.DELETE_BY_ID, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "networks/{id}", method = RequestMethod.DELETE)
     @ResponseBody
     public ResponseEntity<NetworkJson> deleteNetworkById(@ModelAttribute("user") CbUser user, @PathVariable Long id) {
@@ -93,6 +105,7 @@ public class NetworkController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.DELETE_PUBLIC_BY_NAME, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "account/networks/{name}", method = RequestMethod.DELETE)
     @ResponseBody
     public ResponseEntity<NetworkJson> deletePublicNetwork(@ModelAttribute("user") CbUser user, @PathVariable String name) {
@@ -100,6 +113,7 @@ public class NetworkController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    @ApiOperation(value = OperationDescriptions.NetworkOpDescription.DELETE_PRIVATE_BY_NAME, produces = ContentType.JSON, notes = Notes.NETWORK_NOTES)
     @RequestMapping(value = "user/networks/{name}", method = RequestMethod.DELETE)
     @ResponseBody
     public ResponseEntity<NetworkJson> deletePrivateNetwork(@ModelAttribute("user") CbUser user, @PathVariable String name) {

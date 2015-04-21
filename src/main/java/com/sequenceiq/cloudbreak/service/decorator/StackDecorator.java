@@ -16,6 +16,7 @@ import com.sequenceiq.cloudbreak.domain.FailurePolicy;
 import com.sequenceiq.cloudbreak.domain.Stack;
 import com.sequenceiq.cloudbreak.repository.CredentialRepository;
 import com.sequenceiq.cloudbreak.repository.TemplateRepository;
+import com.sequenceiq.cloudbreak.service.network.NetworkService;
 import com.sequenceiq.cloudbreak.service.network.SecurityService;
 import com.sequenceiq.cloudbreak.service.stack.flow.ConsulUtils;
 
@@ -33,6 +34,9 @@ public class StackDecorator implements Decorator<Stack> {
     @Autowired
     private SecurityService securityService;
 
+    @Autowired
+    private NetworkService networkService;
+
     @Value("${cb.aws.ami.map:ap-northeast-1:ami-b8ad69b8,sa-east-1:ami-5f53d642,ap-southeast-1:ami-76350824,eu-west-1:ami-11345766,"
             + "ap-southeast-2:ami-5148356b,us-east-1:ami-fa181c92,us-west-1:ami-bd5dbff9,us-west-2:ami-fb1326cb}")
     private String awsImage;
@@ -49,7 +53,8 @@ public class StackDecorator implements Decorator<Stack> {
 
     private enum DecorationData {
         CREDENTIAL_ID,
-        USR_CONSUL_SERVER_COUNT
+        USR_CONSUL_SERVER_COUNT,
+        NETWORK_ID
     }
 
     @Override
@@ -58,6 +63,7 @@ public class StackDecorator implements Decorator<Stack> {
         subject.setCredential(credentialRepository.findOne((Long) data[DecorationData.CREDENTIAL_ID.ordinal()]));
         int consulServers = getConsulServerCount((Integer) data[DecorationData.USR_CONSUL_SERVER_COUNT.ordinal()], subject.getFullNodeCount());
         subject.setConsulServers(consulServers);
+        subject.setNetwork(networkService.getById((Long) data[DecorationData.NETWORK_ID.ordinal()]));
 
         if (subject.getFailurePolicy() != null) {
             validatFailurePolicy(subject, consulServers, subject.getFailurePolicy());

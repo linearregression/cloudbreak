@@ -56,6 +56,9 @@ public abstract class StackBase implements JsonEntity {
     private List<InstanceGroupJson> instanceGroups = new ArrayList<>();
     @ApiModelProperty(StackModelDescription.ALLOWED_SUBNETS)
     private List<SubnetJson> allowedSubnets = new ArrayList<>();
+    @NotNull
+    @ApiModelProperty(value = StackModelDescription.NETWORK_ID, required = true)
+    private Long networkId;
 
     public FailurePolicyJson getFailurePolicy() {
         return failurePolicy;
@@ -145,5 +148,13 @@ public abstract class StackBase implements JsonEntity {
 
     public void setImage(String image) {
         this.image = image;
+    }
+
+    public Long getNetworkId() {
+        return networkId;
+    }
+
+    public void setNetworkId(Long networkId) {
+        this.networkId = networkId;
     }
 }

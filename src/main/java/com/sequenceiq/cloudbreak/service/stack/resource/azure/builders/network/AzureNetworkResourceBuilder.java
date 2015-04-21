@@ -139,7 +139,7 @@ public class AzureNetworkResourceBuilder extends AzureSimpleNetworkResourceBuild
         props.put(NAME, buildResources.get(0).getResourceName());
         props.put(AFFINITYGROUP, filterResourcesByType(resources, ResourceType.AZURE_AFFINITY_GROUP).get(0).getResourceName());
         props.put(SUBNETNAME, buildResources.get(0).getResourceName());
-        props.put(ADDRESSPREFIX, network.getAddressesPrefixCIDR());
+        props.put(ADDRESSPREFIX, network.getAddressPrefixCIDR());
         props.put(SUBNETADDRESSPREFIX, network.getSubnetCIDR());
         AzureClient azureClient = azureStackUtil.createAzureClient(credential);
         return new AzureNetworkCreateRequest(buildResources.get(0).getResourceName(), provisionContextObject.getStackId(), props, azureClient,

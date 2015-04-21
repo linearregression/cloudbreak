@@ -5,13 +5,13 @@ import javax.persistence.Entity;
 @Entity
 public class AzureNetwork extends Network {
 
-    private String addressesPrefixCIDR;
+    private String addressPrefixCIDR;
 
-    public String getAddressesPrefixCIDR() {
-        return addressesPrefixCIDR;
+    public String getAddressPrefixCIDR() {
+        return addressPrefixCIDR;
     }
 
-    public void setAddressesPrefixCIDR(String addressesPrefixCIDR) {
-        this.addressesPrefixCIDR = addressesPrefixCIDR;
+    public void setAddressPrefixCIDR(String addressPrefixCIDR) {
+        this.addressPrefixCIDR = addressPrefixCIDR;
     }
 }

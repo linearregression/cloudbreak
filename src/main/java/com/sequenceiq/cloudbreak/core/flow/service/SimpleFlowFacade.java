@@ -112,7 +112,7 @@ public class SimpleFlowFacade implements FlowFacade {
             LOGGER.debug("Allocating Ambari roles DONE.");
             return ambariRoleAllocationContext;
         } catch (Exception e) {
-            LOGGER.error("Exception during metadata setup: {}", e.getMessage());
+            LOGGER.error("Exception during Ambari role allocation. :", e.getMessage());
             throw new CloudbreakException(e);
         }
     }
@@ -125,7 +125,7 @@ public class SimpleFlowFacade implements FlowFacade {
             LOGGER.debug("Ambari start DONE.");
             return ambariStartContext;
         } catch (Exception e) {
-            LOGGER.error("Exception during metadata setup: {}", e.getMessage());
+            LOGGER.error("Exception during while starting Ambari.:", e.getMessage());
             throw new CloudbreakException(e);
         }
     }
@@ -145,10 +145,10 @@ public class SimpleFlowFacade implements FlowFacade {
 
     @Override
     public FlowContext resetAmbariCluster(FlowContext context) throws CloudbreakException {
-        LOGGER.debug("Reset ambari cluster. Context: {}", context);
+        LOGGER.debug("Reset Ambari cluster. Context: {}", context);
         try {
             context = clusterFacade.resetAmbariCluster(context);
-            LOGGER.debug("Reset ambari cluster DONE");
+            LOGGER.debug("Reset Ambari cluster DONE");
             return context;
         } catch (Exception e) {
             LOGGER.error("Exception during the cluster reset process: {}", e.getMessage());

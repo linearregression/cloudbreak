@@ -112,7 +112,7 @@ public class SimpleFlowFacade implements FlowFacade {
             LOGGER.debug("Allocating Ambari roles DONE.");
             return ambariRoleAllocationContext;
         } catch (Exception e) {
-            LOGGER.error("Exception during Ambari role allocation. :", e.getMessage());
+            LOGGER.error("Exception during Ambari role allocation.", e);
             throw new CloudbreakException(e);
         }
     }
@@ -125,7 +125,7 @@ public class SimpleFlowFacade implements FlowFacade {
             LOGGER.debug("Ambari start DONE.");
             return ambariStartContext;
         } catch (Exception e) {
-            LOGGER.error("Exception during while starting Ambari.:", e.getMessage());
+            LOGGER.error("Exception while starting Ambari :", e);
             throw new CloudbreakException(e);
         }
     }
@@ -138,7 +138,7 @@ public class SimpleFlowFacade implements FlowFacade {
             LOGGER.debug("Building ambari cluster DONE");
             return context;
         } catch (Exception e) {
-            LOGGER.error("Exception during the cluster build process: {}", e.getMessage());
+            LOGGER.error("Exception during the cluster build process: ", e);
             throw new CloudbreakException(e);
         }
     }
